@@ -26,8 +26,11 @@ module.exports = async (req, res) => {
   if (req.method === "POST") {
     console.log("Received webhook update");
     try {
-      // Use Telegraf's webhookCallback to handle updates
-      await bot.webhookCallback(req, res);
+      // Process the update
+      await bot.handleUpdate(req.body);
+
+      // Return a response immediately
+      res.status(200).json({ status: "ok", message: "Update processed" });
       console.log("Webhook update processed successfully");
     } catch (error) {
       console.error("Error handling update:", error);
