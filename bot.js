@@ -93,6 +93,7 @@ bot.command("gold", async (ctx) => {
 });
 
 // Start the bot
-bot.launch();
+// bot.launch(); // This line starts polling to Telegram servers which in-turn will remove all the set webhooks of this bot!
+
 // Export the bot for Vercel
 module.exports = bot;
