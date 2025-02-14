@@ -91,3 +91,8 @@ bot.command("gold", async (ctx) => {
   const goldPriceTable = await getGoldPrices();
   ctx.replyWithHTML(goldPriceTable);
 });
+
+// Start the bot
+bot.launch();
+// Export the bot for Vercel
+module.exports = bot;
