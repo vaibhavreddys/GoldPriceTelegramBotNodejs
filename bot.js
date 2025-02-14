@@ -1,4 +1,3 @@
-// Import required libraries
 const { Telegraf } = require("telegraf");
 const axios = require("axios");
 const cheerio = require("cheerio");
@@ -93,8 +92,11 @@ bot.command("gold", async (ctx) => {
   ctx.replyWithHTML(goldPriceTable);
 });
 
-// Start the bot
-bot.launch();
-
 // Export the bot for Vercel
-module.exports = bot;
+module.exports = async (req, res) => {
+  if (req.method === "POST") {
+    await bot.handleUpdate(req.body, res);
+  } else {
+    res.status(200).json({ status: "ok", message: "Server is running" });
+  }
+};
