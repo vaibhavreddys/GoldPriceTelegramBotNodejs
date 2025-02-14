@@ -88,8 +88,9 @@ bot.start((ctx) => {
 
 // Command handler for /gold
 bot.command("gold", async (ctx) => {
-  const goldPriceTable = await getGoldPrices();
-  ctx.replyWithHTML(goldPriceTable);
+  ctx.reply("Testing gold prices")
+  //const goldPriceTable = await getGoldPrices();
+  //ctx.replyWithHTML(goldPriceTable);
 });
 
 // Export the bot for Vercel
