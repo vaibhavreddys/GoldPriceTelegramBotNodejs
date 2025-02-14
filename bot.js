@@ -91,12 +91,3 @@ bot.command("gold", async (ctx) => {
   const goldPriceTable = await getGoldPrices();
   ctx.replyWithHTML(goldPriceTable);
 });
-
-// Export the bot for Vercel
-module.exports = async (req, res) => {
-  if (req.method === "POST") {
-    await bot.handleUpdate(req.body, res);
-  } else {
-    res.status(200).json({ status: "ok", message: "Server is running" });
-  }
-};
