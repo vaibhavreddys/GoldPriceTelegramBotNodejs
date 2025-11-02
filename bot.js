@@ -1,5 +1,4 @@
 const { Telegraf } = require("telegraf");
-const axios = require("axios");
 const cheerio = require("cheerio");
 const cloudscraper = require("cloudscraper");
 
@@ -12,7 +11,17 @@ if (!TOKEN) {
 // Initialize the bot
 const bot = new Telegraf(TOKEN);
 
-// Function to scrape the gold price table
+// Escape HTML to avoid accidental markup when using replyWithHTML
+function escapeHtml(text) {
+  if (text === undefined || text === null) return "";
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+// Function to fetch gold prices using the specific element example:
+// <p class="gold-common-head"><span id="22K-price">₹11,275</span></p>
 async function getGoldPrices() {
   const url = "https://www.goodreturns.in/gold-rates/bangalore.html";
 
@@ -23,77 +32,72 @@ async function getGoldPrices() {
     // Load the HTML into Cheerio
     const $ = cheerio.load(html);
 
-    // Locate the section containing the table
-    const section = $('section[data-gr-title="Today 22 Carat Gold Price Per Gram in Bangalore (INR)"]');
-    if (!section.length) {
-      return "Sorry, I couldn't find the gold price table, try again!";
+    // Attempt to find the 22K price by id first (exact match to the example)
+    const price22kById = $('#22K-price').first();
+    if (price22kById && price22kById.length) {
+      const value = price22kById.text().trim();
+      const message = `<b>🌟 Gold Price (22K) — Bangalore</b>\n\n<pre>22K: ${escapeHtml(value)}</pre>\n\n<i>Data sourced from <a href="https://www.goodreturns.in/gold-rates/bangalore.html">GoodReturns.in</a></i>`;
+      return message;
     }
 
-    // Locate the table within the section
-    const table = section.find("table.table-conatiner");
-    if (!table.length) {
-      return "Sorry, I couldn't find the gold price information, try again!";
-    }
-
-    // Extract table headers
-    const headers = [];
-    table.find("thead th").each((i, el) => {
-      headers.push($(el).text().trim());
-    });
-
-    // Extract table rows
-    const rows = [];
-    table.find("tbody tr").each((i, row) => {
-      const cells = [];
-      $(row).find("td").each((j, cell) => {
-        cells.push($(cell).text().trim());
-      });
-      rows.push(cells);
-    });
-
-    // Calculate the maximum width for each column
-    const columnWidths = headers.map((header, i) => {
-      return Math.max(header.length, ...rows.map((row) => row[i].length));
-    });
-
-    // Format the table data with proper alignment
-    let tableData = `<b>${headers.map((header, i) => header.padEnd(columnWidths[i])).join(" | ")}</b>\n`;
-    tableData += `<i>${columnWidths.map((width) => "-".repeat(width)).join(" | ")}</i>\n`;
-    rows.forEach((row) => {
-      let change = row[3];
-      if (change.includes("−") || change.includes("-")) {
-        row[3] = `🔴 ${change}`;
-      } else {
-        row[3] = `🟢 ${change}`;
+    // If the id isn't present, try the class-based selector shown in the example
+    // The structure in the example: <p class="gold-common-head"><span id="22K-price">₹11,275</span></p>
+    // So look for .gold-common-head > span (and try to pick a span whose id contains "22K" or "22k" or "22K-price")
+    let fallbackValue = "";
+    $('.gold-common-head').each((i, el) => {
+      const span = $(el).find('span').first();
+      if (span && span.length) {
+        const id = (span.attr('id') || "").toLowerCase();
+        if (id.includes('22k') || id.includes('22k-price') || id.includes('22k_price')) {
+          fallbackValue = span.text().trim();
+          return false; // break out of each
+        }
+        // if not specifically 22K id, capture the first span as a general fallback
+        if (!fallbackValue) fallbackValue = span.text().trim();
       }
-      tableData += `${row.map((cell, i) => cell.padEnd(columnWidths[i])).join(" | ")}\n`;
     });
 
-    const message = `
-🌟 Today's Gold Prices in Bangalore 🌟\n\n
-${tableData}\n
-<i>Data sourced from <a href="https://www.goodreturns.in/gold-rates/bangalore.html">GoodReturns.in</a></i>
-`;
-    return message;
+    if (fallbackValue) {
+      const message = `<b>🌟 Gold Price (22K) — Bangalore</b>\n\n<pre>22K: ${escapeHtml(fallbackValue)}</pre>\n\n<i>Data sourced from <a href="https://www.goodreturns.in/gold-rates/bangalore.html">GoodReturns.in</a></i>`;
+      return message;
+    }
+
+    // As a last resort, try to find any span whose id contains "22" and "k" (robust for different casing/formatting)
+    let generic = "";
+    $('span').each((i, el) => {
+      const id = ( $(el).attr('id') || "" ).toLowerCase();
+      if (id.includes('22k') || id.includes('22-k') || id.includes('22_k') || id === '22k-price') {
+        generic = $(el).text().trim();
+        return false;
+      }
+    });
+
+    if (generic) {
+      const message = `<b>🌟 Gold Price (22K) — Bangalore</b>\n\n<pre>22K: ${escapeHtml(generic)}</pre>\n\n<i>Data sourced from <a href="https://www.goodreturns.in/gold-rates/bangalore.html">GoodReturns.in</a></i>`;
+      return message;
+    }
+
+    // Nothing found
+    return "Sorry, I couldn't locate the 22K gold price on the page. The page structure may have changed.";
   } catch (error) {
-    console.error("Error fetching gold prices:", error);
+    console.error("Error fetching gold prices:", error && error.message ? error.message : error);
     return "Sorry, I couldn't fetch the gold prices. Please try again later.";
   }
 }
 
 // Command handler for /start
 bot.start((ctx) => {
-  ctx.reply("Hello! Use /gold to get today's gold price table in Bangalore.");
+  ctx.reply("Hello! Use /gold to get today's 22K gold price in Bangalore.");
 });
 
 // Command handler for /gold
 bot.command("gold", async (ctx) => {
-  const goldPriceTable = await getGoldPrices();
-  ctx.replyWithHTML(goldPriceTable);
+  const goldPriceMessage = await getGoldPrices();
+  ctx.replyWithHTML(goldPriceMessage, { disable_web_page_preview: true });
 });
 
 // Start the bot
-// bot.launch(); // This line starts polling to Telegram servers which in-turn will remove all the set webhooks of this bot!
+// bot.launch(); // Disabled for environments (Vercel) that use webhooks
 
 // Export the bot for Vercel
 module.exports = bot;
